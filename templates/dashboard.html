@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<!-- Required meta tags -->
+		<meta charset="utf-8">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge">
+		<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+		<!-- Bootstrap CSS -->
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+
+		<title>Dashboard</title>
+	</head>
+
+	<body>
+		<div>
+			<h1> Select any Playlist or Recently Played Songs </h1>
+		</div>
+
+		<div>
+			{% for item in data %}
+			<button 
+			class="btn btn-outline btn-success" 
+			onclick="send_id('{{item.id}}'); window.location.href = '/playlist';">
+				<div>
+					<img id="im" src="{{item.uri}}" alt="{{item.name}}"/>
+				</div>
+			</button>
+			{% endfor %}
+			
+			<button 
+			class="btn btn-outline btn-success" 
+			onclick="send_id('recentlyplayed'); window.location.href = '/playlist';">
+				<div>
+					<image id="im" src="{{ url_for('static', filename='images/recently.png')}}" alt="Recently Played"/>
+				</div>
+			</button>
+		</div>
+
+		<script>
+			function send_id(id){
+				console.log({id})
+				var data = {
+					id:id
+				}
+				fetch(`${window.origin}/dashboard/data`,{
+					method: 'POST',
+					body: JSON.stringify(data),
+					headers: new Headers({
+						"content-type": "application/json"
+					})
+				})
+			}
+		</script>
+
+		<!-- Optional JavaScript -->
+		<!-- jQuery first, then Popper.js, then Bootstrap JS -->
+		<script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+		<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+	</body>
+
+	<style>
+		div {
+			display: flex;
+			justify-content: center;
+			align-content: center;
+			align-items: center;
+			margin-top: 5%;
+			margin-left: 5%;
+			margin-right: 5%;
+			margin-bottom: 5%;
+		}
+
+		button {
+			margin: 30px;
+		}
+
+		#im {
+			height: 100%;
+			width: 100%;
+		}
+	</style>
+</html>
