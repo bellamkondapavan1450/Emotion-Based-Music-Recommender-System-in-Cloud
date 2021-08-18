@@ -1,0 +1,6 @@
+# Function dependencies, for example:
+# package>=version
+google-cloud-storage==1.41.0
+tensorflow==2.5.0
+numpy==1.19.5
+opencv-python==4.5.3.56
