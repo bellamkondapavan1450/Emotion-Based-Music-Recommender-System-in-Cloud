@@ -8,8 +8,6 @@ from google.cloud import storage
 from google.cloud import pubsub_v1
 import os
 import json
-import pickle
-from sklearn.preprocessing import MinMaxScaler
 
 
 PATH = os.path.join(os.getcwd(), 'static\\json\\thesis-project-2021-f018d364eb67.json')
@@ -128,28 +126,23 @@ def dashboard_data():
     req = request.get_json()
     global playlist_id
     playlist_id = req["id"]
-
-    if(playlist_id != 'recentlyplayed'):
-        # Publish playlist_id to PubSub
-        publisher = pubsub_v1.PublisherClient()
-        topic_path = 'projects/thesis-project-2021/topics/playlist-id'
-        data = playlist_id.encode('utf-8')
-        future = publisher.publish(topic_path, data)
-        print('Playlist_ID published Successfully...')
-        print(f'Published Message id {future.result()}')
-        # cloud function triggers and Songs Classification will be done.
+    # Publish playlist_id to PubSub
+    publisher = pubsub_v1.PublisherClient()
+    topic_path = 'projects/thesis-project-2021/topics/playlist-id'
+    data = playlist_id.encode('utf-8')
+    future = publisher.publish(topic_path, data)
+    print('Playlist_ID published Successfully...')
+    # cloud function triggers and Songs Classification will be done.
     return req
 
 
 @app.route('/playlist')
 def playlist():
-
     session['token_info'], authorized = get_token()
     session.modified = True
     if not authorized:
         return redirect('/login')
     sp = spotipy.Spotify(auth=session.get('token_info').get('access_token'))
-
     storage_client = storage.Client(PATH)
     bucket = storage_client.get_bucket('sample-storage-123')
     filename = [filename.name for filename in list(bucket.list_blobs(prefix='')) ]
@@ -162,83 +155,21 @@ def playlist():
     emot = emotion.download_as_text()
     print(emot)
     bucket.delete_blob('emotion.txt')
-    
-    if(playlist_id != 'recentlyplayed'):
-        while ('songs_features.csv' not in filename):
-            print('Please wait. Songs to be Classified...')
-            time.sleep(2)
-            filename = [filename.name for filename in list(bucket.list_blobs(prefix=''))]
-        data = bucket.blob('songs_features.csv')
-        data.download_to_filename('static/songs_features.csv')
-        bucket.delete_blob('songs_features.csv')
-        d = pd.read_csv('static/songs_features.csv')
-        d1 = d[d['mood']==emot]
-        tracks_uris = d1['uri'].tolist()
-    else:
-        track_ids = []
-        track_uri = []
-        acousticness = []
-        danceability = []
-        energy = []
-        instrumentalness = []
-        liveness = []
-        loudness = []
-        speechiness = []
-        tempo = []
-        valence = []
-        r = sp.current_user_recently_played(limit=50)
-        # print(json.dumps(r, indent=4, sort_keys=True))
-        if(r):
-            tracks = r['items']
-            for song in tracks:
-                track_id = song['track']['id']
-                if(track_id not in track_ids):
-                    track_ids.append(track_id)
-                    res = sp.audio_features(track_id)
-                    # print(json.dumps(res, indent=4, sort_keys=True))
-                    if(res):
-                        track_uri.append(res[0]['uri'])
-                        acousticness.append(res[0]['acousticness'])
-                        danceability.append(res[0]['danceability'])
-                        energy.append(res[0]['energy'])
-                        instrumentalness.append(res[0]['instrumentalness'])
-                        liveness.append(res[0]['liveness'])
-                        loudness.append(res[0]['loudness'])
-                        speechiness.append(res[0]['speechiness'])
-                        tempo.append(res[0]['tempo'])
-                        valence.append(res[0]['valence'])
-        df = pd.DataFrame()
-        df['uri'] = track_uri
-        df['acousticness'] = acousticness
-        df['danceability'] = danceability
-        df['energy'] = energy
-        df['instrumentalness'] = instrumentalness
-        df['liveness'] = liveness
-        df['loudness'] = loudness
-        df['speechiness'] = speechiness
-        df['tempo'] = tempo
-        df['valence'] = valence
-        model = bucket.blob('model.pkl')
-        model.download_to_filename('static/model.pkl')
-        pkl_model = pickle.load(open('static/model.pkl', 'rb'))
-        clist = ["danceability", "acousticness", "energy", "instrumentalness", "liveness", "valence", "loudness", "speechiness", "tempo"]
-        x = df[clist]
-        scaler = MinMaxScaler()
-        x = preprocess_data(x, scaler)
-        y = pkl_model.predict(x)
-        df['mood'] = y
-        df1 = df[df['mood']==emot]
-        tracks_uris = df1['uri'].tolist()
+    while ('songs_features.csv' not in filename):
+        print('Please wait. Songs to be Classified...')
+        time.sleep(2)
+        filename = [filename.name for filename in list(bucket.list_blobs(prefix=''))]
+    data = bucket.blob('songs_features.csv')
+    data.download_to_filename('static/songs_features.csv')
+    bucket.delete_blob('songs_features.csv')
+    d = pd.read_csv('static/songs_features.csv')
+    d1 = d[d['mood']==emot]
+    tracks_uris = d1['uri'].tolist()
     playlist_name = f'{emot} mood songs'.upper()
     sp.user_playlist_create(user=username, name=playlist_name, public=True, description='Music according to the mood')
     playlists = sp.user_playlists(username)
     sp.user_playlist_add_tracks(user=username, playlist_id=playlists['items'][0]['id'], tracks=tracks_uris)
     return render_template('playlist.html', id=playlists['items'][0]['id'])
-
-
-@app.route('/loading')
-def loading_data():
-    return render_template('loading.html')
 
 
 def create_spotify_oauth():
@@ -263,27 +194,3 @@ def get_token():
     token_valid = True
     return token_info, token_valid
 
-
-def preprocess_data(data, scaler):
-    
-    new_data = data.copy()
-    scaler.fit(data[["danceability"]])
-    new_data[["danceability"]] = scaler.transform(data[["danceability"]])
-    scaler.fit(data[["acousticness"]])
-    new_data[["acousticness"]] = scaler.transform(data[["acousticness"]])
-    scaler.fit(data[["energy"]])
-    new_data[["energy"]] = scaler.transform(data[["energy"]])
-    scaler.fit(data[["instrumentalness"]])
-    new_data[["instrumentalness"]] = scaler.transform(data[["instrumentalness"]])
-    scaler.fit(data[["liveness"]])
-    new_data[["liveness"]] = scaler.transform(data[["liveness"]])
-    scaler.fit(data[["valence"]])
-    new_data[["valence"]] = scaler.transform(data[["valence"]])
-    scaler.fit(data[["loudness"]])
-    new_data[["loudness"]] = scaler.transform(data[["loudness"]])
-    scaler.fit(data[["speechiness"]])
-    new_data[["speechiness"]] = scaler.transform(data[["speechiness"]])
-    scaler.fit(data[["tempo"]])
-    new_data[["tempo"]] = scaler.transform(data[["tempo"]])
-    
-    return new_data
